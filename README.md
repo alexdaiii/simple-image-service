@@ -2,7 +2,7 @@
 
 A super simple image service that allows you to upload images and 
 get a URL to access them. Requires Cloudflare Zero Trust for Authentication
-+ Authorization and some S3 compatible storage for storing the images.
+and Authorization and some S3 compatible storage for storing the images.
 
 ## API Endpoints
 
