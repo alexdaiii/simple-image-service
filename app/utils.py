@@ -7,7 +7,7 @@ from typing import Any
 import boto3
 from botocore.exceptions import ClientError
 
-from pydantic import computed_field
+from pydantic import computed_field, FilePath
 from pydantic_settings import BaseSettings
 
 from app.logging import LogLevels
@@ -27,18 +27,20 @@ class Settings(BaseSettings):
         """Parse the allowed origins into a list."""
         if not self.allowed_origins:
             return []
-        
+
         return [origin.strip() for origin in self.allowed_origins.split(",")]
 
     # AWS S3 settings
     aws_s3_bucket: str
-    aws_s3_region: str
     aws_profile_name: str | None = None
 
     # clouflare settings
-    require_cloudflare_zero_access: bool = True
+    # require_cloudflare_zero_access: bool = True
     policy_aud: str
     team_domain: str
+    pyjwk_cache_lifespan: int = 14400  # default in Cloudflare
+    allowlist_file: FilePath = str(Path.home() / "post_allowlist.json")
+    """A json file with a list of allowed emails for Cloudflare Zero Trust Access."""
 
     host: str = "http://localhost:8000"
 
@@ -74,7 +76,6 @@ def s3_client() -> Any:
         session = boto3.Session()
     return session.client(
         "s3",
-        region_name=get_settings().aws_s3_region,
     )
 
 

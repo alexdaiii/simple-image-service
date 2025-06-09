@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FastAPI HTML Example</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet"
+          href="{{ url_for('static', path='/tailwind-preflight.css') }}">
+    <link rel="stylesheet"
+          href="{{ url_for('static', path='/prose.css') }}">
+</head>
+<body>
+<div class="prose"
+     style="width: 100%; max-width: 96rem; margin: auto; padding: 2rem;">
+    <h1>Welcome {{ email }}</h1>
+
+    <div>
+        {% if allowed_to_post %}
+        <strong>You are allowed to POST images!</strong>
+        {% endif %}
+    </div>
+
+    <div>
+        Your CF-Authorization Cookie is located at:
+
+        <ul>
+            <li>
+                <b>Chrome:</b> Developer Tools &gt; Application &gt; Storage
+                &gt; Cookies
+            </li>
+            <li>
+                <b>Firefox:</b> Developer Tools &gt; Storage &gt; Cookies
+            </li>
+        </ul>
+
+    </div>
+    <div>
+        You can use this in subsequent requests to access protected resources.
+        It must be provided in the `Cookie` header as `CF_Authorization`.
+    </div>
+    <code>
+        curl -H "cookie: CF_Authorization=&lt;CF_AUTHORIZATION_COOKIE&gt;"
+        https://app.example.com
+    </code>
+</div>
+</body>
+</html>

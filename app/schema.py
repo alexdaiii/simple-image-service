@@ -15,8 +15,8 @@ class ImagePost(BaseModel):
         description="Unique key for the image within the project (overrides if exists).",
     )
 
-class ImagePostReturn(BaseModel):
 
+class ImagePostReturn(BaseModel):
     url: HttpUrl
     width: int
     height: int

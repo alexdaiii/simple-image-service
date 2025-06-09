@@ -3,6 +3,7 @@ import io
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from PIL import Image
 from dotenv import load_dotenv
@@ -10,7 +11,10 @@ from fastapi import FastAPI, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.cors import CORSMiddleware
-from starlette.responses import StreamingResponse
+from starlette.requests import Request
+from starlette.responses import StreamingResponse, HTMLResponse
+from starlette.staticfiles import StaticFiles
+from starlette.templating import Jinja2Templates
 
 from app.database import (
     open_database_conn_pool,
@@ -20,7 +24,8 @@ from app.database import (
 )
 from app.logging import configure_logging
 from app.schema import ImagePost, ImagePostReturn
-from app.security import verify_token
+from app.auth.cloudflare import verify_token, get_claims, allowed_emails, \
+    email_allowed
 from app.utils import get_settings, upload_file_bytes, get_file_bytes
 
 # --- ENVIRONMENT VARIABLES ---
@@ -42,7 +47,7 @@ async def lifespan(_app: FastAPI):
 
 SUPPORTED_IMAGE_FORMATS = {"avif", "png", "webp", "jpeg", "jpg"}
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, dependencies=[Depends(verify_token)])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().allowed_origins_list,
@@ -55,9 +60,29 @@ app.add_middleware(
 
 log = logging.getLogger(__name__)
 
+templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+app.mount(
+    "/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static"
+)
 
-@app.post("/images", dependencies=[Depends(verify_token)])
-async def upload_image(data: ImagePost, session: AsyncSession = Depends(get_session)) -> ImagePostReturn:
+
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request, claims: dict = Depends(get_claims), allowed_emails: set[str] = Depends(allowed_emails)):
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "email": claims.get("email", ""),
+            "cf_auth_cookie": request.cookies.get("CF_Authorization", ""),
+            "allowed_to_post": claims.get("email", "") in allowed_emails,
+        },
+    )
+
+
+@app.post("/images", dependencies=[Depends(email_allowed)])
+async def upload_image(
+    data: ImagePost, session: AsyncSession = Depends(get_session)
+) -> ImagePostReturn:
     # Decode base64
     try:
         img_bytes = base64.b64decode(data.image)
@@ -122,7 +147,7 @@ INSERT INTO images (
     )
 
 
-@app.get("/images/{project}/{filename}", dependencies=[Depends(verify_token)])
+@app.get("/images/{project}/{filename}")
 async def get_image(
     project: str,
     filename: str,
