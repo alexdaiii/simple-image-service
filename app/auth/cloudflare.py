@@ -35,6 +35,10 @@ async def verify_token(request: Request) -> None:
     users.
     """
 
+    # check if route excluded from auth
+    if request.url.path in get_settings().auth_exclude_paths:
+        return
+
     token = request.cookies.get("CF_Authorization")
     if not token:
         raise HTTPException(status_code=401, detail="Unauthorized")

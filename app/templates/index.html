@@ -2,12 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>FastAPI HTML Example</title>
+    <title>Simple Image Service</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet"
-          href="{{ url_for('static', path='/tailwind-preflight.css') }}">
-    <link rel="stylesheet"
-          href="{{ url_for('static', path='/prose.css') }}">
+    <link rel="preload"
+          as="style"
+          href="{{ url_for('static', path='/tailwind-preflight.css') }}"
+          onload="this.rel='stylesheet'"
+    >
+    <link rel="preload"
+          as="style"
+          href="{{ url_for('static', path='/prose.css') }}"
+          onload="this.rel='stylesheet'"
+    >
 </head>
 <body>
 <div class="prose"

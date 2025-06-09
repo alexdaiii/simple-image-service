@@ -12,7 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import StreamingResponse, HTMLResponse
+from starlette.responses import StreamingResponse, HTMLResponse, FileResponse
 from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
@@ -24,8 +24,7 @@ from app.database import (
 )
 from app.logging import configure_logging
 from app.schema import ImagePost, ImagePostReturn
-from app.auth.cloudflare import verify_token, get_claims, allowed_emails, \
-    email_allowed
+from app.auth.cloudflare import verify_token, get_claims, allowed_emails, email_allowed
 from app.utils import get_settings, upload_file_bytes, get_file_bytes
 
 # --- ENVIRONMENT VARIABLES ---
@@ -66,8 +65,18 @@ app.mount(
 )
 
 
-@app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request, claims: dict = Depends(get_claims), allowed_emails: set[str] = Depends(allowed_emails)):
+# Serve favicon.ico from /static/favicon.ico
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse("static/favicon.ico")
+
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+async def read_root(
+    request: Request,
+    claims: dict = Depends(get_claims),
+    allowed_emails: set[str] = Depends(allowed_emails),
+):
     return templates.TemplateResponse(
         "index.html",
         {

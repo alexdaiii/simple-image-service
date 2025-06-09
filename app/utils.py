@@ -7,7 +7,7 @@ from typing import Any
 import boto3
 from botocore.exceptions import ClientError
 
-from pydantic import computed_field, FilePath
+from pydantic import computed_field, FilePath, NewPath
 from pydantic_settings import BaseSettings
 
 from app.logging import LogLevels
@@ -35,11 +35,11 @@ class Settings(BaseSettings):
     aws_profile_name: str | None = None
 
     # clouflare settings
-    # require_cloudflare_zero_access: bool = True
+    auth_exclude_paths: set[str] = {"/favicon.ico", "/health"}
     policy_aud: str
     team_domain: str
     pyjwk_cache_lifespan: int = 14400  # default in Cloudflare
-    allowlist_file: FilePath = str(Path.home() / "post_allowlist.json")
+    allowlist_file: FilePath = "/config/post_allowlist.json"
     """A json file with a list of allowed emails for Cloudflare Zero Trust Access."""
 
     host: str = "http://localhost:8000"
@@ -49,9 +49,13 @@ class Settings(BaseSettings):
 
     log_level: LogLevels = LogLevels.error
 
-    sqlite_db: str = (
-        f"sqlite+aiosqlite:///{Path(__file__).parent.parent / 'data/images.sqlite'}"
-    )
+    db_file: FilePath | NewPath = "/data/images.sqlite"
+
+    @computed_field
+    @property
+    def sqlite_db(self) -> str:
+        """Construct the SQLite database URL."""
+        return f"sqlite+aiosqlite:///{self.db_file}"
 
     @computed_field
     @property
@@ -69,10 +73,11 @@ def get_settings() -> Settings:
 @lru_cache
 def s3_client() -> Any:
     """Get the S3 client."""
-    log.debug(f"Creating S3 client with profile: {get_settings().aws_profile_name}")
     if get_settings().aws_profile_name:
+        log.debug(f"Creating S3 client with profile: {get_settings().aws_profile_name}")
         session = boto3.Session(profile_name=get_settings().aws_profile_name)
     else:
+        log.debug("Creating S3 client with default profile")
         session = boto3.Session()
     return session.client(
         "s3",
