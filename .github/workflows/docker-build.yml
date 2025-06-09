@@ -48,10 +48,3 @@ jobs:
           tags: |
             ghcr.io/${{ env.IMAGE_NAME }}:latest
             ghcr.io/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
-
-      - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-name: ${{ env.REGISTRY }}/${{ github.repository }}
-          subject-digest: ${{ steps.push.outputs.digest }}
-          push-to-registry: true
