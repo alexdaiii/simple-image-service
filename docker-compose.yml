@@ -40,20 +40,23 @@ services:
   #      app:
   #        condition: service_healthy
 
-  app:
+  app-dev:
     image: simple-image-service:latest
     ports:
-      - "8000:8000"
+      - "8001:8000"
     environment:
       - AWS_S3_BUCKET=${AWS_S3_BUCKET}
       - POLICY_AUD=${POLICY_AUD}
       - TEAM_DOMAIN=${TEAM_DOMAIN}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # optional if you are inside Lightsail + using Lightsail bucket
-    #      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-    #      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-    #      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
     volumes:
       # include these or it will auto-create anonymous volumes
       - ./data:/data
       - ./config:/config
+      # overide the default app
+      - ./app:/app
+    command: ["fastapi", "dev", "main.py" , "--host", "0.0.0.0"]
