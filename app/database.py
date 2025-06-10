@@ -72,8 +72,8 @@ async def get_session(
             await session.rollback()
             raise e
         except Exception:
-            print("An error occurred, rolling back")
             await session.rollback()
+            log.error("Unhandled exception during database session")
             raise HTTPException(
                 status_code=500,
                 detail="Internal server error",

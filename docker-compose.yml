@@ -1,41 +1,59 @@
 services:
 
+  #  app:
+  #    image: ghcr.io/alexdaiii/simple-image-service:latest
+  #    ports:
+  #      - "8000:8000"
+  #    environment:
+  #      - AWS_S3_BUCKET=${AWS_S3_BUCKET}
+  #      - POLICY_AUD=${POLICY_AUD}
+  #      - TEAM_DOMAIN=${TEAM_DOMAIN}
+  #      - LOG_LEVEL=${LOG_LEVEL:-ERROR}
+  #      # optional if you are inside Lightsail + using Lightsail bucket
+  ##      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+  ##      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+  ##      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+  #    volumes:
+  #      # include these or it will auto-create anonymous volumes
+  #      - ./data:/data
+  #      - ./config:/config
+  #    healthcheck:
+  #      test: [
+  #        "CMD",
+  #        "python",
+  #        "-c",
+  #        "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+  #    ]
+  #      interval: 30s
+  #      start_period: 10s
+  #      timeout: 5s
+  #      retries: 5
+  #
+  #  tunnel:
+  #    image: cloudflare/cloudflared:latest
+  #    command: tunnel run
+  #    environment:
+  #      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+  #    volumes:
+  #      - ./cloudflared:/etc/cloudflared
+  #    depends_on:
+  #      app:
+  #        condition: service_healthy
+
   app:
-    image: ghcr.io/alexdaiii/simple-image-service:latest
+    image: simple-image-service:latest
     ports:
       - "8000:8000"
     environment:
       - AWS_S3_BUCKET=${AWS_S3_BUCKET}
       - POLICY_AUD=${POLICY_AUD}
       - TEAM_DOMAIN=${TEAM_DOMAIN}
-      - LOG_LEVEL=${LOG_LEVEL:-ERROR}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # optional if you are inside Lightsail + using Lightsail bucket
-#      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-#      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-#      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+    #      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+    #      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    #      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
     volumes:
       # include these or it will auto-create anonymous volumes
       - ./data:/data
       - ./config:/config
-    healthcheck:
-      test: [
-        "CMD",
-        "python",
-        "-c",
-        "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
-    ]
-      interval: 30s
-      start_period: 10s
-      timeout: 5s
-      retries: 5
-
-  tunnel:
-    image: cloudflare/cloudflared:latest
-    command: tunnel run
-    environment:
-      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
-    volumes:
-      - ./cloudflared:/etc/cloudflared
-    depends_on:
-      app:
-        condition: service_healthy

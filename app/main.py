@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from PIL import Image
+from PIL import features
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, Query
 from sqlalchemy import text
@@ -32,6 +33,9 @@ if os.environ.get("ENV") == "development":
     print("Loading environment variables from .env file")
     load_dotenv()
 
+SUPPORTED_IMAGE_FORMATS = {"avif", "png", "webp", "jpeg", "jpg"}
+
+
 
 # --- DB SETUP ---
 @asynccontextmanager
@@ -40,11 +44,10 @@ async def lifespan(_app: FastAPI):
     configure_logging(get_settings().log_level)
     await open_database_conn_pool()
     await init_db()
+    check_supported_formats()  # Ensure PIL supports required formats
     yield
     await close_database_conn_pool()
 
-
-SUPPORTED_IMAGE_FORMATS = {"avif", "png", "webp", "jpeg", "jpg"}
 
 app = FastAPI(lifespan=lifespan, dependencies=[Depends(verify_token)])
 app.add_middleware(
@@ -56,13 +59,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 log = logging.getLogger(__name__)
+def check_supported_formats():
+
+    supported = {
+        "avif": features.check_module("avif"),
+        "webp": features.check_module("webp"),
+        "jpeg": features.check_codec("jpg"),
+        "png": features.check_codec("zlib")
+    }
+
+    log.info(f"Supported formats: {supported}")
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 app.mount(
     "/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static"
-)
+) 
 
 
 # Serve favicon.ico from /static/favicon.ico
@@ -105,6 +117,7 @@ async def upload_image(
             log.debug(f"Image format detected: {fmt}, MIME type: {mime}")
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid base64 or image format")
+
     if fmt == "jpg":
         fmt = "jpeg"
     if fmt not in SUPPORTED_IMAGE_FORMATS:
