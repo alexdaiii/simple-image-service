@@ -18,6 +18,11 @@ dependencies = [
     "uvicorn>=0.34.3",
 ]
 
+[project.optional-dependencies]
+noavif = [
+    "pillow>=11.2.1",
+]
+
 [dependency-groups]
 dev = [
     "boto3-stubs>=1.38.31",
