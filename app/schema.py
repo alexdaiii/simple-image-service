@@ -21,3 +21,8 @@ class ImagePostReturn(BaseModel):
     width: int
     height: int
     size: int
+
+
+class ImagesGetReturn(BaseModel):
+    images: list[HttpUrl]
+    nextContinuationToken: str

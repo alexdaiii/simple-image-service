@@ -20,5 +20,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "boto3-stubs>=1.38.31",
     "ruff>=0.11.13",
+    "types-boto3[essential]>=1.38.35",
 ]

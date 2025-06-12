@@ -1,6 +1,7 @@
 import base64
 import io
 import logging
+import mimetypes
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -8,7 +9,7 @@ from pathlib import Path
 from PIL import Image
 from PIL import features
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.cors import CORSMiddleware
@@ -24,9 +25,10 @@ from app.database import (
     init_db,
 )
 from app.logging import configure_logging
-from app.schema import ImagePost, ImagePostReturn
+from app.schema import ImagePost, ImagePostReturn, ImagesGetReturn
 from app.auth.cloudflare import verify_token, get_claims, allowed_emails, email_allowed
-from app.utils import get_settings, upload_file_bytes, get_file_bytes
+from app.utils import get_settings
+from app.boto_s3 import upload_file_bytes, get_file_stream, list_bucket_items
 
 # --- ENVIRONMENT VARIABLES ---
 if os.environ.get("ENV") == "development":
@@ -168,71 +170,54 @@ INSERT INTO images (
         size=len(img_bytes),
     )
 
-
 @app.get("/images/{project}/{filename}")
-async def get_image(
-    project: str,
-    filename: str,
-    width: int = Query(None, gt=0),
-    height: int = Query(None, gt=0),
-    session: AsyncSession = Depends(get_session),
-):
+async def get_image(project: str, filename: str):
+    # Validate filename and extension
     if "." not in filename:
-        log.debug(f"Filename without extension: {filename}")
         raise HTTPException(status_code=400, detail="Filename must include extension.")
 
-    *key_parts, fmt = filename.split(".")
-    key = ".".join(key_parts)
-    fmt = fmt.lower()
-
-    if fmt not in SUPPORTED_IMAGE_FORMATS:
-        log.debug(f"Unsupported format requested: {fmt}")
+    *key_parts, ext = filename.split(".")
+    ext = ext.lower()
+    if ext == "jpg":
+        ext = "jpeg"
+    if ext not in SUPPORTED_IMAGE_FORMATS:
         raise HTTPException(status_code=400, detail="Unsupported format requested.")
 
-    db_fmt = "jpeg" if fmt == "jpg" else fmt
+    # Compose the S3 key
+    s3_key = f"{project}/{'/'.join(key_parts)}.{ext}"
 
-    image_not_found = HTTPException(status_code=404, detail="Image not found")
+    # Try to fetch from S3 and stream
+    try:
+        s3obj = get_file_stream(get_settings().aws_s3_bucket, s3_key)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Image not found")
 
-    # Look up in DB
-    result = await session.execute(
-        text(
-            "SELECT format, s3_path FROM images WHERE project = :project AND key = :key"
-        ),
-        {"project": project, "key": key},
+    content_type = s3obj.get("ContentType") or mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    
+    headers = {
+        "Cache-Control": "public, max-age=2592000, stale-while-revalidate=1209600"
+    }
+    return StreamingResponse(s3obj["Body"], media_type=content_type, headers=headers)
+
+@app.get("/images")
+async def get_images(continuation_token: str | None = None) -> ImagesGetReturn:
+    listItems = list_bucket_items(
+        get_settings().aws_s3_bucket,
+        continuation_token=continuation_token
     )
-    row = result.first()
-    log.debug(f"DB lookup result: {row}")
-    if not row:
-        raise image_not_found
-    stored_format, s3_path = row
-    if stored_format != db_fmt:
-        raise image_not_found
+    images = [
+        f"{get_settings().host}/images/{item['Key']}"
+        for item in listItems["Contents"]
+    ]
 
-    # Fetch from S3
-    s3_bucket = get_settings().aws_s3_bucket
-    img_bytes = get_file_bytes(s3_bucket, s3_path)
-    if not img_bytes:
-        raise image_not_found
-
-    # Open and optionally resize
-    bio = io.BytesIO(img_bytes)
-    with Image.open(bio) as img:
-        orig_mime = img.get_format_mimetype()
-        if width or height:
-            img.thumbnail((width or img.width, height or img.height))
-            out = io.BytesIO()
-            img.save(out, format=img.format)
-            out.seek(0)
-            response_bytes = out
-        else:
-            bio.seek(0)
-            response_bytes = bio
-
-    return StreamingResponse(response_bytes, media_type=orig_mime)
+    return ImagesGetReturn(
+        images=images,
+        nextContinuationToken=listItems.get("ContinuationToken", "")
+    )
 
 
 @app.get("/health")
-async def health_check():
+async def health_check(): 
     """
     Health check endpoint to verify the service is running
     """
